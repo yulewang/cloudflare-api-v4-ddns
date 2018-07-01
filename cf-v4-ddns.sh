@@ -101,8 +101,8 @@ ID_FILE=$HOME/.id-cf.txt
 if [ -f $ID_FILE ] && [ $(wc -l $ID_FILE | cut -d " " -f 1) == 4 ] \
   && [ "$(sed -n '3,1p' "$ID_FILE")" == "$CFZONE_NAME" ] \
   && [ "$(sed -n '4,1p' "$ID_FILE")" == "$CFRECORD_NAME" ]; then
-    CFZONE_ID=$(head -1 $ID_FILE)
-    CFRECORD_ID=$(tail -1 $ID_FILE)
+    CFZONE_ID=$(sed -n '1,1p' "$ID_FILE")
+    CFRECORD_ID=$(sed -n '2,1p' "$ID_FILE")
 else
     echo "Updating zone_identifier & record_identifier"
     CFZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json" | grep -Po '(?<="id":")[^"]*' | head -1 )
