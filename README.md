@@ -1,1 +1,1 @@
-Cloudflare API v4 Dynamic DNS Update in Bash
+Cloudflare API v4 Dynamic DNS Update in Bash, without unnecessary requests
