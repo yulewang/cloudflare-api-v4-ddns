@@ -32,7 +32,7 @@ CFKEY=
 # Username, eg: user@example.com
 CFUSER=
 
-# Zone name, will list all possible if missing, eg: example.com
+# Zone name, eg: example.com
 CFZONE_NAME=
 
 # Hostname to update, eg: homeserver.example.com
@@ -90,22 +90,27 @@ else
   OLD_WAN_IP=""
 fi
 
-# Get zone_identifier & record_identifier
-ID_FILE=$HOME/.id-cf.txt
-if [ -f $ID_FILE ] && [ $(wc -l $ID_FILE | cut -d " " -f 1) == 2 ]; then
-    CFZONE_ID=$(head -1 $ID_FILE)
-    CFRECORD_ID=$(tail -1 $ID_FILE)
-else
-    CFZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json" | grep -Po '(?<="id":")[^"]*' | head -1 )
-    CFRECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records?name=$CFRECORD_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json"  | grep -Po '(?<="id":")[^"]*')
-    echo "$CFZONE_ID" > $ID_FILE
-    echo "$CFRECORD_ID" >> $ID_FILE
-fi
-
 # If WAN IP is unchanged an not -f flag, exit here
 if [ "$WAN_IP" = "$OLD_WAN_IP" ] && [ "$FORCE" = false ]; then
   echo "WAN IP Unchanged, to update anyway use flag -f true"
   exit 0
+fi
+
+# Get zone_identifier & record_identifier
+ID_FILE=$HOME/.id-cf.txt
+if [ -f $ID_FILE ] && [ $(wc -l $ID_FILE | cut -d " " -f 1) == 4 ] \
+  && [ "$(sed -n '3,1p' "$ID_FILE")" == "$CFZONE_NAME" ] \
+  && [ "$(sed -n '4,1p' "$ID_FILE")" == "$CFRECORD_NAME" ]; then
+    CFZONE_ID=$(head -1 $ID_FILE)
+    CFRECORD_ID=$(tail -1 $ID_FILE)
+else
+    echo "Updating zone_identifier & record_identifier"
+    CFZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json" | grep -Po '(?<="id":")[^"]*' | head -1 )
+    CFRECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records?name=$CFRECORD_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json"  | grep -Po '(?<="id":")[^"]*')
+    echo "$CFZONE_ID" > $ID_FILE
+    echo "$CFRECORD_ID" >> $ID_FILE
+    echo "$CFZONE_NAME" >> $ID_FILE
+    echo "$CFRECORD_NAME" >> $ID_FILE
 fi
 
 # If WAN is changed, update cloudflare
@@ -119,7 +124,6 @@ RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID
 
 if [ "$RESPONSE" != "${RESPONSE%success*}" ] && [ $(echo $RESPONSE | grep "\"success\":true") != "" ]; then
   echo "Updated succesfuly!"
-  echo $RESPONSE
   echo $WAN_IP > $HOME/.wan_ip-cf.txt
   exit
 else
