@@ -83,8 +83,9 @@ fi
 
 # Get current and old WAN ip
 WAN_IP=`curl -s ${WANIPSITE}`
-if [ -f $HOME/.wan_ip-cf.txt ]; then
-  OLD_WAN_IP=`cat $HOME/.wan_ip-cf.txt`
+WAN_IP_FILE=$HOME/.cf-wan_ip_$CFRECORD_NAME.txt
+if [ -f $WAN_IP_FILE ]; then
+  OLD_WAN_IP=`cat $WAN_IP_FILE`
 else
   echo "No file, need IP"
   OLD_WAN_IP=""
@@ -97,7 +98,7 @@ if [ "$WAN_IP" = "$OLD_WAN_IP" ] && [ "$FORCE" = false ]; then
 fi
 
 # Get zone_identifier & record_identifier
-ID_FILE=$HOME/.id-cf.txt
+ID_FILE=$HOME/.cf-id_$CFRECORD_NAME.txt
 if [ -f $ID_FILE ] && [ $(wc -l $ID_FILE | cut -d " " -f 1) == 4 ] \
   && [ "$(sed -n '3,1p' "$ID_FILE")" == "$CFZONE_NAME" ] \
   && [ "$(sed -n '4,1p' "$ID_FILE")" == "$CFRECORD_NAME" ]; then
@@ -124,7 +125,7 @@ RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID
 
 if [ "$RESPONSE" != "${RESPONSE%success*}" ] && [ $(echo $RESPONSE | grep "\"success\":true") != "" ]; then
   echo "Updated succesfuly!"
-  echo $WAN_IP > $HOME/.wan_ip-cf.txt
+  echo $WAN_IP > $WAN_IP_FILE
   exit
 else
   echo 'Something went wrong :('
