@@ -19,6 +19,7 @@ set -o pipefail
 #            -u user@example.com \
 #            -h host.example.com \     # fqdn of the record you want to update
 #            -z example.com \          # will show you all zones if forgot, but you need this
+#            -t A|AAAA                 # specify ipv4/ipv6, default: ipv4
 
 # Optional flags:
 #            -f false|true \           # force dns update, disregard local stored ip
@@ -38,22 +39,35 @@ CFZONE_NAME=
 # Hostname to update, eg: homeserver.example.com
 CFRECORD_NAME=
 
+# Record type, A: IPv4 / AAAA: IPv6, default IPv4
+CFRECORD_TYPE=A
+
 # Cloudflare TTL for record, between 120 and 86400 seconds
 CFTTL=120
 
 # Ignore local file, update ip anyway
 FORCE=false
 
+WANIPSITE="http://ipv4.icanhazip.com"
+
 # Site to retrieve WAN ip, other examples are: bot.whatismyipaddress.com, https://api.ipify.org/ ...
-WANIPSITE="http://icanhazip.com"
+if p["$CFRECORD_TYPE" = "A"]; then
+  :
+elif ["$CFRECORD_TYPE" = "AAAA"]; then
+  WANIPSITE="http://ipv6.icanhazip.com"
+else
+  echo "$CFRECORD_TYPE specified is invalid, CFRECORD_TYPE can only be A(IPv4) or AAAA(IPv6)"
+  exit 2
+fi
 
 # get parameter
-while getopts k:u:h:z:f: opts; do
+while getopts k:u:h:z:t:f: opts; do
   case ${opts} in
     k) CFKEY=${OPTARG} ;;
     u) CFUSER=${OPTARG} ;;
     h) CFRECORD_NAME=${OPTARG} ;;
     z) CFZONE_NAME=${OPTARG} ;;
+    t) CFRECORD_TYPE=${OPTARG} ;;
     f) FORCE=${OPTARG} ;;
   esac
 done
@@ -121,7 +135,7 @@ RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID
   -H "X-Auth-Email: $CFUSER" \
   -H "X-Auth-Key: $CFKEY" \
   -H "Content-Type: application/json" \
-  --data "{\"id\":\"$CFZONE_ID\",\"type\":\"A\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\", \"ttl\":$CFTTL}")
+  --data "{\"id\":\"$CFZONE_ID\",\"type\":\"$CFRECORD_TYPE\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\", \"ttl\":$CFTTL}")
 
 if [ "$RESPONSE" != "${RESPONSE%success*}" ] && [ $(echo $RESPONSE | grep "\"success\":true") != "" ]; then
   echo "Updated succesfuly!"
