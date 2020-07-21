@@ -9,9 +9,9 @@ set -o pipefail
 # Place at:
 # curl https://raw.githubusercontent.com/yulewang/cloudflare-api-v4-ddns/master/cf-v4-ddns.sh > /usr/local/bin/cf-ddns.sh && chmod +x /usr/local/bin/cf-ddns.sh
 # run `crontab -e` and add next line:
-# */1 * * * * /usr/local/bin/cf-ddns.sh >/dev/null 2>&1
+# */5 * * * * /usr/local/bin/cf-ddns.sh >/dev/null 2>&1
 # or you need log:
-# */1 * * * * /usr/local/bin/cf-ddns.sh >> /var/log/cf-ddns.log 2>&1
+# */5 * * * * /usr/local/bin/cf-ddns.sh >> /var/log/cf-ddns.log 2>&1
 
 
 # Usage:
@@ -20,6 +20,7 @@ set -o pipefail
 #            -h host.example.com \     # fqdn of the record you want to update
 #            -z example.com \          # will show you all zones if forgot, but you need this
 #            -t A|AAAA                 # specify ipv4/ipv6, default: ipv4
+#            -p true|false             # specify if proxied or not, default: true
 
 # Optional flags:
 #            -f false|true \           # force dns update, disregard local stored ip
@@ -42,6 +43,9 @@ CFRECORD_NAME=
 # Record type, A(IPv4)|AAAA(IPv6), default IPv4
 CFRECORD_TYPE=A
 
+# Record Proxied by CloudFlare
+CFRECORD_PROXIED=true
+
 # Cloudflare TTL for record, between 120 and 86400 seconds
 CFTTL=120
 
@@ -61,13 +65,14 @@ else
 fi
 
 # get parameter
-while getopts k:u:h:z:t:f: opts; do
+while getopts k:u:h:z:t:p:f: opts; do
   case ${opts} in
     k) CFKEY=${OPTARG} ;;
     u) CFUSER=${OPTARG} ;;
     h) CFRECORD_NAME=${OPTARG} ;;
     z) CFZONE_NAME=${OPTARG} ;;
     t) CFRECORD_TYPE=${OPTARG} ;;
+    p) CFRECORD_PROXIED=${OPTARG} ;;
     f) FORCE=${OPTARG} ;;
   esac
 done
@@ -135,7 +140,7 @@ RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID
   -H "X-Auth-Email: $CFUSER" \
   -H "X-Auth-Key: $CFKEY" \
   -H "Content-Type: application/json" \
-  --data "{\"id\":\"$CFZONE_ID\",\"type\":\"$CFRECORD_TYPE\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\", \"ttl\":$CFTTL}")
+  --data "{\"id\":\"$CFZONE_ID\",\"type\":\"$CFRECORD_TYPE\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\", \"ttl\":$CFTTL, \"proxied\":$CFRECORD_PROXIED}")
 
 if [ "$RESPONSE" != "${RESPONSE%success*}" ] && [ "$(echo $RESPONSE | grep "\"success\":true")" != "" ]; then
   echo "Updated succesfuly!"
