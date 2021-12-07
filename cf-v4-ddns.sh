@@ -2,7 +2,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
+Keys="X-Auth-Key:"
+Tokens="Authorization: Bearer"
 # Automatically update your CloudFlare DNS record to the IP, Dynamic DNS
 # Can retrieve cloudflare Domain id and list zone's, because, lazy
 
@@ -19,10 +20,12 @@ set -o pipefail
 #            -u user@example.com \
 #            -h host.example.com \     # fqdn of the record you want to update
 #            -z example.com \          # will show you all zones if forgot, but you need this
+#            -a true|false \          # specify cf tokens/global_keys, default: false
 #            -t A|AAAA                 # specify ipv4/ipv6, default: ipv4
 
 # Optional flags:
 #            -f false|true \           # force dns update, disregard local stored ip
+#            -a true|false \          # which type of api to use
 
 # default config
 
@@ -48,7 +51,33 @@ CFTTL=120
 # Ignore local file, update ip anyway
 FORCE=false
 
+# Use Cloudflare API Tokens or API Keys,true(API Tokens)|false(Global API Keys), default API Tokens
+UseTokens=false
+Which2Use=${Keys}
+
 WANIPSITE="http://ipv4.icanhazip.com"
+
+# get parameter
+while getopts k:u:h:z:t:f:a: opts; do
+  case ${opts} in
+    k) CFKEY=${OPTARG} ;;
+    u) CFUSER=${OPTARG} ;;
+    h) CFRECORD_NAME=${OPTARG} ;;
+    z) CFZONE_NAME=${OPTARG} ;;
+    t) CFRECORD_TYPE=${OPTARG} ;;
+    a) UseTokens=${OPTARG};;
+    f) FORCE=${OPTARG} ;;
+  esac
+done
+
+# Switch which API to use
+if [ "${UseTokens}" = "true" ]; then
+  Which2Use=${Tokens}
+elif [ "${UseTokens}" = "false" ]; then
+  :
+else
+  echo "$UseTokens specified is invalid, UseTokens can only be true(API Tokens)|false(Global API Keys)"
+fi
 
 # Site to retrieve WAN ip, other examples are: bot.whatismyipaddress.com, https://api.ipify.org/ ...
 if [ "$CFRECORD_TYPE" = "A" ]; then
@@ -59,18 +88,6 @@ else
   echo "$CFRECORD_TYPE specified is invalid, CFRECORD_TYPE can only be A(for IPv4)|AAAA(for IPv6)"
   exit 2
 fi
-
-# get parameter
-while getopts k:u:h:z:t:f: opts; do
-  case ${opts} in
-    k) CFKEY=${OPTARG} ;;
-    u) CFUSER=${OPTARG} ;;
-    h) CFRECORD_NAME=${OPTARG} ;;
-    z) CFZONE_NAME=${OPTARG} ;;
-    t) CFRECORD_TYPE=${OPTARG} ;;
-    f) FORCE=${OPTARG} ;;
-  esac
-done
 
 # If required settings are missing just exit
 if [ "$CFKEY" = "" ]; then
@@ -120,8 +137,8 @@ if [ -f $ID_FILE ] && [ $(wc -l $ID_FILE | cut -d " " -f 1) == 4 ] \
     CFRECORD_ID=$(sed -n '2,1p' "$ID_FILE")
 else
     echo "Updating zone_identifier & record_identifier"
-    CFZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json" | grep -Po '(?<="id":")[^"]*' | head -1 )
-    CFRECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records?name=$CFRECORD_NAME" -H "X-Auth-Email: $CFUSER" -H "X-Auth-Key: $CFKEY" -H "Content-Type: application/json"  | grep -Po '(?<="id":")[^"]*' | head -1 )
+    CFZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CFZONE_NAME" -H "X-Auth-Email: $CFUSER" -H "$Which2Use $CFKEY" -H "Content-Type: application/json" | grep -Po '(?<="id":")[^"]*' | head -1 )
+    CFRECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records?name=$CFRECORD_NAME" -H "X-Auth-Email: $CFUSER" -H "$Which2Use $CFKEY" -H "Content-Type: application/json"  | grep -Po '(?<="id":")[^"]*' | head -1 )
     echo "$CFZONE_ID" > $ID_FILE
     echo "$CFRECORD_ID" >> $ID_FILE
     echo "$CFZONE_NAME" >> $ID_FILE
@@ -133,7 +150,7 @@ echo "Updating DNS to $WAN_IP"
 
 RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CFZONE_ID/dns_records/$CFRECORD_ID" \
   -H "X-Auth-Email: $CFUSER" \
-  -H "X-Auth-Key: $CFKEY" \
+  -H "$Which2Use $CFKEY" \
   -H "Content-Type: application/json" \
   --data "{\"id\":\"$CFZONE_ID\",\"type\":\"$CFRECORD_TYPE\",\"name\":\"$CFRECORD_NAME\",\"content\":\"$WAN_IP\", \"ttl\":$CFTTL}")
 
