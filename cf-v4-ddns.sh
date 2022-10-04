@@ -44,6 +44,15 @@ CFTTL=120
 # Ignore local file, update ip anyway
 FORCE=false
 
+# Alternative WANIPSITE
+# ifconfig.me
+# icanhazip.com
+# ident.me
+# ipecho.net/plain
+# whatismyip.akamai.com
+# tnx.nl/ip
+# myip.dnsomatic.com
+# ip.appspot.com
 WANIPSITE="http://ipv4.icanhazip.com"
 
 # Site to retrieve WAN ip, other examples are: bot.whatismyipaddress.com, https://api.ipify.org/ ...
