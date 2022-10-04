@@ -25,7 +25,7 @@ set -o pipefail
 
 # default config
 
-# API key, see https://www.cloudflare.com/a/account/my-account,
+# API key, see https://dash.cloudflare.com/profile/api-tokens,
 # incorrect api-key results in E_UNAUTH error
 CFKEY=
 
@@ -69,7 +69,7 @@ done
 
 # If required settings are missing just exit
 if [ "$CFKEY" = "" ]; then
-  echo "Missing api-key, get at: https://www.cloudflare.com/a/account/my-account"
+  echo "Missing api-key, get at: https://dash.cloudflare.com/profile/api-tokens"
   echo "and save in ${0} or using the -k flag"
   exit 2
 fi
